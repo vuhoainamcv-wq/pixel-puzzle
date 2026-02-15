@@ -443,7 +443,7 @@
           (parseFloat(wrapStyle.borderBottomWidth) || 0);
 
         // CHỐT: safety lớn hơn để chịu zoom/rounding trên Vercel
-        const safety = 28;
+        const safety = 40;
 
         const innerW = Math.max(0, availableW - wrapPadX - borderX - safety);
         const innerH = Math.max(0, availableH - wrapPadY - borderY - safety);
