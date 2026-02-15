@@ -23,6 +23,7 @@
     *{ box-sizing:border-box; }
     body{
       font-family: system-ui, Segoe UI, Roboto, Arial;
+      -webkit-text-size-adjust: 100%;
       margin:0;
       height:100vh;
       overflow:hidden;
@@ -168,16 +169,16 @@
     .grid{ display:grid; }
 
     .grid-target{
-      grid-template-columns:repeat(3, clamp(76px, 8.8vh, 96px));
-      grid-template-rows:repeat(3, clamp(76px, 8.8vh, 96px));
-      gap: clamp(10px, 1.4vh, 14px);
-    }
+  grid-template-columns:repeat(3, 90px);
+  grid-template-rows:repeat(3, 90px);
+  gap: 14px;
+}
 
     .grid-card{
-      grid-template-columns:repeat(3, clamp(34px, 3.7vh, 44px));
-      grid-template-rows:repeat(3, clamp(34px, 3.7vh, 44px));
-      gap: clamp(6px, .9vh, 10px);
-    }
+  grid-template-columns:repeat(3, 1fr);
+  grid-template-rows:repeat(3, 1fr);
+  gap: 8px;
+}
 
     .cell{
       background: var(--cell-empty);
@@ -185,15 +186,14 @@
       box-shadow: var(--cell-shadow);
     }
     .grid-target .cell{
-      width:clamp(76px, 8.8vh, 96px);
-      height:clamp(76px, 8.8vh, 96px);
-      border-radius:18px;
-    }
+  width:90px;
+  height:90px;
+}
     .grid-card .cell{
-      width:clamp(34px, 3.7vh, 44px);
-      height:clamp(34px, 3.7vh, 44px);
-      border-radius:12px;
-    }
+  width: calc(var(--tile) / 4.2);
+  height: calc(var(--tile) / 4.2);
+  border-radius: 12px;
+}
 
     /* Cards grid area - NO SCROLL (fit by JS) */
     #cardsWrap{
