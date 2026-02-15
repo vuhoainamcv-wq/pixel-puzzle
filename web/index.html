@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pixel Puzzle</title>
+
+  <style>
+    :root{
+      --gap: 18px;
+      --radius: 14px;
+      --border: #e6e6e6;
+
+      /* JS sẽ set 2 biến này để 3x3 cards fit (không scroll) */
+      --tile: 180px;
+      --tile-gap: 14px;
+
+      --cell-empty: #fbfbfc;
+      --cell-border: #e9e9ee;
+      --cell-shadow: 0 1px 0 rgba(0,0,0,.03);
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      font-family: system-ui, Segoe UI, Roboto, Arial;
+      margin:0;
+      height:100vh;
+      overflow:hidden;
+      background:#fff;
+      color:#111;
+    }
+
+    /* 3-column layout */
+    .app{
+      height:100vh;
+      display:grid;
+      grid-template-columns: 1fr 2.2fr 1fr; /* Target | Cards | Top5 */
+      gap: var(--gap);
+      padding: var(--gap);
+    }
+
+    .panel{
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      background:#fff;
+      padding:16px;
+      overflow:hidden;
+      min-width:0;
+      min-height:0;
+    }
+
+    /* Titles */
+    .title{
+      margin:0;
+      font-weight:700;
+      font-size:18px;
+    }
+    .muted{ color:#666; }
+
+    /* LEFT: Target */
+    .target-panel{
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .target-title{
+      position:absolute;
+      top:16px;
+      left:16px;
+      margin:0;
+      font-weight:700;
+      font-size:18px;
+    }
+
+    /* RIGHT: Top5 panel */
+    .top5-panel{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      height:100%;
+      min-height:0;
+    }
+    .top5-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex:0 0 auto;
+    }
+    .top5-body{
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
+      border-top:1px solid var(--border);
+      padding-top:12px;
+    }
+    .top5-body h3{
+      margin:0 0 8px 0;
+      font-size:14px;
+    }
+    .top5-body ol{
+      margin:0;
+      padding-left:18px;
+    }
+    .top5-body li{
+      margin:6px 0;
+      font-size:13px;
+      color:#333;
+    }
+
+    /* Cards panel as vertical layout */
+    .cards-panel{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      height:100%;
+      min-height:0;
+    }
+
+    .answer-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap: 12px;
+      flex:0 0 auto;
+    }
+
+    .controls{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:nowrap;            /* <-- FIX: không wrap ở desktop */
+  justify-content:flex-end;
+  white-space:nowrap;          /* <-- FIX */
+}
+
+    select, button, input{
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:#fafafa;
+      cursor:pointer;
+      font:inherit;
+    }
+    input{ cursor:text; }
+    button:hover{ background:#f0f0f0; }
+    button:disabled{ opacity:.55; cursor:not-allowed; }
+
+    .hud{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:nowrap;            /* <-- FIX */
+  white-space:nowrap;          /* <-- FIX */
+  overflow:hidden;             /* <-- FIX: nếu dài quá thì không làm tăng height */
+}
+    .pill{
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:6px 10px;
+      background:#fff;
+      font-size:13px;
+      white-space:nowrap;
+    }
+
+    /* Grids (cells) */
+    .grid{ display:grid; }
+
+    .grid-target{
+      grid-template-columns:repeat(3, clamp(76px, 8.8vh, 96px));
+      grid-template-rows:repeat(3, clamp(76px, 8.8vh, 96px));
+      gap: clamp(10px, 1.4vh, 14px);
+    }
+
+    .grid-card{
+      grid-template-columns:repeat(3, clamp(34px, 3.7vh, 44px));
+      grid-template-rows:repeat(3, clamp(34px, 3.7vh, 44px));
+      gap: clamp(6px, .9vh, 10px);
+    }
+
+    .cell{
+      background: var(--cell-empty);
+      border:1px solid var(--cell-border);
+      box-shadow: var(--cell-shadow);
+    }
+    .grid-target .cell{
+      width:clamp(76px, 8.8vh, 96px);
+      height:clamp(76px, 8.8vh, 96px);
+      border-radius:18px;
+    }
+    .grid-card .cell{
+      width:clamp(34px, 3.7vh, 44px);
+      height:clamp(34px, 3.7vh, 44px);
+      border-radius:12px;
+    }
+
+    /* Cards grid area - NO SCROLL (fit by JS) */
+    #cardsWrap{
+      flex: 1 1 auto;
+      min-height: 0;
+
+      display:grid;
+      grid-template-columns: repeat(3, var(--tile));
+      gap: var(--tile-gap);
+      justify-content:center;
+      align-content:start;
+
+      overflow:hidden; /* quan trọng: không scroll */
+      padding: 6px;
+
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background:#fcfcfd;
+    }
+
+    .card{
+      width: var(--tile);
+      aspect-ratio: 1 / 1;
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      background:#fff;
+      user-select:none;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      position:relative;
+      box-shadow: 0 1px 0 rgba(0,0,0,.03);
+    }
+
+    .card-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .card-num{ font-weight:700; }
+    .card .grid{ width: fit-content; }
+
+    .selected{
+      outline:3px solid #111;
+      outline-offset:0px;
+    }
+
+    .badge{
+      position:absolute;
+      top:10px;
+      right:10px;
+      width:26px;
+      height:26px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:700;
+      font-size:13px;
+      background:#111;
+      color:#fff;
+    }
+
+    .bottom{
+      flex:0 0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .left-bottom{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    /* Responsive fallback: nếu màn nhỏ -> stack 3 panel */
+    @media (max-width: 1100px){
+      body{ overflow:auto; }
+      .app{
+        height:auto;
+        grid-template-columns: 1fr;
+      }
+      .panel{ overflow:visible; }
+      #cardsWrap{ overflow:auto; max-height: 70vh; } /* fallback thôi */
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <!-- LEFT: TARGET -->
+    <div class="panel target-panel">
+      <h2 class="target-title">Target</h2>
+      <div id="targetGrid" class="grid grid-target"></div>
+    </div>
+
+    <!-- MIDDLE: CARDS -->
+    <div class="panel cards-panel" id="cardsPanel">
+      <div class="answer-top" id="cardsHeader">
+        <div>
+          <h2 class="title" style="margin-bottom:6px">Cards</h2>
+          <div class="hud">
+            <span class="pill" id="hudRound">Round: -</span>
+            <span class="pill" id="hudBank">Bank: -</span>
+            <span class="pill" id="hudTime">Time: 00:00.0</span>
+            <span class="pill" id="hudPenalty">Penalty: +0.0s</span>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="startBtn">Start Run</button>
+          <button id="resetBtn">Reset</button>
+
+          <span class="muted">Bank:</span>
+          <select id="bankSelect">
+            <option value="easy">easy</option>
+            <option value="normal">normal</option>
+            <option value="hard">hard</option>
+            <option value="expert">expert</option>
+            <option value="elite">elite</option>
+          </select>
+          <button id="newBtn">New Puzzle</button>
+        </div>
+      </div>
+
+      <div id="cardsWrap"></div>
+
+      <div class="bottom" id="cardsBottom">
+        <div class="left-bottom">
+          <button id="submitBtn" disabled>Submit (need 3 cards)</button>
+          <span id="result" class="muted"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: TOP 5 -->
+    <div class="panel top5-panel">
+      <div class="top5-head">
+        <h2 class="title">Top 5</h2>
+        <span class="muted" style="font-size:13px">fastest</span>
+      </div>
+
+      <div class="top5-body">
+        <h3 style="display:none">Top 5 (fastest)</h3>
+        <ol id="leaderboard"></ol>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+
+  <script>
+  // Fit 3x3 cards to the available space (no scroll)
+  function fitCardsGrid(){
+    // Only do this in desktop layout (when 3 columns active)
+    if (window.matchMedia("(max-width: 1100px)").matches) return;
+
+    const cardsWrap = document.getElementById("cardsWrap");
+    const header = document.getElementById("cardsHeader");
+    const bottom = document.getElementById("cardsBottom");
+    const cardsPanel = document.getElementById("cardsPanel");
+    if(!cardsWrap || !header || !bottom || !cardsPanel) return;
+
+    // Use requestAnimationFrame to measure AFTER layout settles
+    requestAnimationFrame(() => {
+      const panelRect = cardsPanel.getBoundingClientRect();
+      const headerRect = header.getBoundingClientRect();
+      const bottomRect = bottom.getBoundingClientRect();
+
+      const panelStyle = getComputedStyle(cardsPanel);
+      const padTop = parseFloat(panelStyle.paddingTop) || 0;
+      const padBottom = parseFloat(panelStyle.paddingBottom) || 0;
+      const padLeft = parseFloat(panelStyle.paddingLeft) || 0;
+      const padRight = parseFloat(panelStyle.paddingRight) || 0;
+
+      // Get real flex gap (cards-panel has gap:12px)
+      const panelGap = parseFloat(panelStyle.gap) || 0;
+
+      // available height inside panel for cardsWrap:
+      // panel height minus header minus bottom minus paddings minus 2 gaps (header->wrap, wrap->bottom)
+      const availableH =
+        panelRect.height
+        - headerRect.height
+        - bottomRect.height
+        - padTop
+        - padBottom
+        - (panelGap * 2);
+
+      // available width inside panel for cardsWrap
+      const availableW =
+        panelRect.width
+        - padLeft
+        - padRight;
+
+      // internal padding of cardsWrap + border
+      const wrapStyle = getComputedStyle(cardsWrap);
+      const wrapPadX = (parseFloat(wrapStyle.paddingLeft) || 0) + (parseFloat(wrapStyle.paddingRight) || 0);
+      const wrapPadY = (parseFloat(wrapStyle.paddingTop) || 0) + (parseFloat(wrapStyle.paddingBottom) || 0);
+      const borderX = (parseFloat(wrapStyle.borderLeftWidth) || 0) + (parseFloat(wrapStyle.borderRightWidth) || 0);
+      const borderY = (parseFloat(wrapStyle.borderTopWidth) || 0) + (parseFloat(wrapStyle.borderBottomWidth) || 0);
+
+      const innerW = Math.max(0, availableW - wrapPadX - borderX);
+      const innerH = Math.max(0, availableH - wrapPadY - borderY);
+
+      // Choose gap based on smaller dimension
+      let gap = Math.floor(Math.min(18, Math.max(10, Math.min(innerW, innerH) * 0.03)));
+
+      // Solve tile from both constraints: 3 tiles + 2 gaps fits both width & height
+      const tileFromW = (innerW - 2*gap) / 3;
+      const tileFromH = (innerH - 2*gap) / 3;
+      let tile = Math.floor(Math.min(tileFromW, tileFromH));
+
+      // clamp for usability
+      tile = Math.max(130, Math.min(tile, 210));
+      gap  = Math.max(10, Math.min(gap, 18));
+
+      document.documentElement.style.setProperty("--tile", tile + "px");
+      document.documentElement.style.setProperty("--tile-gap", gap + "px");
+    });
+  }
+
+  function debounceFit(){
+    window.clearTimeout(window.__fitT);
+    window.__fitT = window.setTimeout(fitCardsGrid, 30);
+  }
+
+  window.addEventListener("load", fitCardsGrid);
+  window.addEventListener("resize", debounceFit);
+
+  // IMPORTANT: re-fit whenever UI changes (Start/Reset/New)
+  window.addEventListener("click", (e) => {
+    const id = e.target && e.target.id;
+    if (id === "startBtn" || id === "resetBtn" || id === "newBtn" || id === "bankSelect" || id === "submitBtn") {
+      debounceFit();
+      // one more pass after next frame (some UI updates happen async)
+      requestAnimationFrame(() => debounceFit());
+    }
+  });
+
+  // In case app.js updates HUD text without click (timer ticks)
+  // Refit once shortly after start to lock the layout.
+  const _origSetText = (el, txt) => { if (el) el.textContent = txt; };
+</script>
+</body>
+</html>
