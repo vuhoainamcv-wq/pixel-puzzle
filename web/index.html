@@ -362,34 +362,29 @@
   <script src="app.js"></script>
 
 <script>
-  // =========================
-  // Fit 3x3 cards + controls (NO scroll, NO wrap, NO cut)
-  // =========================
-
   function fitControlsRow() {
     if (window.matchMedia("(max-width: 1100px)").matches) return;
 
     const header = document.getElementById("cardsHeader");
     if (!header) return;
 
-    const leftBlock = header.firstElementChild; // block "Cards + HUD"
+    const leftBlock = header.firstElementChild; // "Cards + HUD"
     const controls = header.querySelector(".controls");
     if (!leftBlock || !controls) return;
 
-    // reset to measure true width
     controls.style.transform = "scale(1)";
 
     const headerRect = header.getBoundingClientRect();
     const leftRect = leftBlock.getBoundingClientRect();
     const ctrlRect = controls.getBoundingClientRect();
 
-    // available width for controls on the right
-    const avail = (headerRect.right - leftRect.right) - 12; // buffer
+    const avail = (headerRect.right - leftRect.right) - 16; // buffer lớn hơn
     const need = ctrlRect.width;
 
     if (need <= avail) return;
 
-    const scale = Math.max(0.82, Math.min(1, avail / need));
+    // CHỐT: cho phép scale nhỏ hơn để không bao giờ bị cắt chữ
+    const scale = Math.max(0.70, Math.min(1, avail / need));
     controls.style.transform = `scale(${scale})`;
   }
 
@@ -402,12 +397,10 @@
     const cardsPanel = document.getElementById("cardsPanel");
     if (!cardsWrap || !header || !bottom || !cardsPanel) return;
 
-    // Measure AFTER layout settles
     requestAnimationFrame(() => {
-      // 1) First, fit controls so header height becomes stable (prevents cut)
+      // fit controls trước để header "ổn định" (tránh đổi line-height/width)
       fitControlsRow();
 
-      // measure again after scaling controls (it can change header height slightly)
       requestAnimationFrame(() => {
         const panelRect = cardsPanel.getBoundingClientRect();
         const headerRect = header.getBoundingClientRect();
@@ -418,10 +411,9 @@
         const padBottom = parseFloat(panelStyle.paddingBottom) || 0;
         const padLeft = parseFloat(panelStyle.paddingLeft) || 0;
         const padRight = parseFloat(panelStyle.paddingRight) || 0;
-
         const panelGap = parseFloat(panelStyle.gap) || 0;
 
-        // Available space for cardsWrap inside the panel
+        // ===== Available size for cardsWrap (panel content box) =====
         const availableH =
           panelRect.height -
           headerRect.height -
@@ -450,37 +442,32 @@
           (parseFloat(wrapStyle.borderTopWidth) || 0) +
           (parseFloat(wrapStyle.borderBottomWidth) || 0);
 
-        // Safety margin to avoid 1-2px rounding / font / zoom differences (esp. Vercel)
-        const safety = 14;
+        // CHỐT: safety lớn hơn để chịu zoom/rounding trên Vercel
+        const safety = 28;
 
         const innerW = Math.max(0, availableW - wrapPadX - borderX - safety);
         const innerH = Math.max(0, availableH - wrapPadY - borderY - safety);
 
-        // Choose gap based on available space
         let gap = Math.floor(
           Math.min(18, Math.max(10, Math.min(innerW, innerH) * 0.03))
         );
 
-        // Solve tile size so 3x3 fits both width and height
         const tileFromW = (innerW - 2 * gap) / 3;
         const tileFromH = (innerH - 2 * gap) / 3;
 
-        // subtract a tiny margin so it never "just barely" overflows
-        let tile = Math.floor(Math.min(tileFromW, tileFromH) - 2);
+        // CHỐT: trừ thêm 6px để không bao giờ cụt hàng #7-#9
+        let tile = Math.floor(Math.min(tileFromW, tileFromH) - 6);
 
-        // clamp
-        tile = Math.max(120, Math.min(tile, 210));
+        tile = Math.max(115, Math.min(tile, 210));
         gap = Math.max(10, Math.min(gap, 18));
 
         document.documentElement.style.setProperty("--tile", tile + "px");
         document.documentElement.style.setProperty("--tile-gap", gap + "px");
 
-        // Optional: force cardsWrap height to what we planned (reduces flex rounding)
-        // (keeps NO scroll, NO cut more stable)
-        // Note: we use availableH (not innerH) because padding/border are inside cardsWrap.
-        cardsWrap.style.height = Math.max(0, availableH) + "px";
+        // CHỐT: set height với buffer -> tránh cụt dọc
+        cardsWrap.style.height = Math.max(0, availableH - 8) + "px";
 
-        // One last controls fit (in case header width changed slightly)
+        // fit controls lần nữa sau khi layout đổi
         fitControlsRow();
       });
     });
@@ -488,13 +475,12 @@
 
   function debounceFit() {
     window.clearTimeout(window.__fitT);
-    window.__fitT = window.setTimeout(fitCardsGrid, 40);
+    window.__fitT = window.setTimeout(fitCardsGrid, 60);
   }
 
   window.addEventListener("load", fitCardsGrid);
   window.addEventListener("resize", debounceFit);
 
-  // Re-fit whenever UI changes (Start/Reset/New/Submit)
   window.addEventListener("click", (e) => {
     const id = e.target && e.target.id;
     if (id === "startBtn" || id === "resetBtn" || id === "newBtn" || id === "submitBtn") {
@@ -503,15 +489,13 @@
     }
   });
 
-  // Bank select can be "change"
   document.getElementById("bankSelect")?.addEventListener("change", () => {
     debounceFit();
     requestAnimationFrame(() => debounceFit());
   });
 
-  // Also refit shortly after the run starts (timer text can change widths)
-  // (safe even if not used)
-  setTimeout(() => debounceFit(), 200);
+  // chống trường hợp font load muộn làm lệch layout
+  setTimeout(debounceFit, 250);
 </script>
 </body>
 </html>
