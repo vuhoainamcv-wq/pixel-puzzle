@@ -18,6 +18,11 @@
       --cell-empty: #fbfbfc;
       --cell-border: #e9e9ee;
       --cell-shadow: 0 1px 0 rgba(0,0,0,.03);
+
+      /* target nhìn rõ hơn một chút */
+      --target-border: #dfe1ea;
+      --target-shadow: 0 1px 0 rgba(0,0,0,.06);
+      --target-bg: #ffffff;
     }
 
     *{ box-sizing:border-box; }
@@ -96,10 +101,6 @@
       border-top:1px solid var(--border);
       padding-top:12px;
     }
-    .top5-body h3{
-      margin:0 0 8px 0;
-      font-size:14px;
-    }
     .top5-body ol{
       margin:0;
       padding-left:18px;
@@ -125,16 +126,17 @@
       justify-content:space-between;
       gap: 12px;
       flex:0 0 auto;
+      min-width:0;
     }
 
     .controls{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:nowrap;            /* <-- FIX: không wrap ở desktop */
-  justify-content:flex-end;
-  white-space:nowrap;          /* <-- FIX */
-}
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:nowrap;      /* không wrap ở desktop */
+      justify-content:flex-end;
+      white-space:nowrap;
+    }
 
     select, button, input{
       padding:8px 10px;
@@ -149,13 +151,14 @@
     button:disabled{ opacity:.55; cursor:not-allowed; }
 
     .hud{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  flex-wrap:nowrap;            /* <-- FIX */
-  white-space:nowrap;          /* <-- FIX */
-  overflow:hidden;             /* <-- FIX: nếu dài quá thì không làm tăng height */
-}
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:nowrap;
+      white-space:nowrap;
+      overflow:hidden; /* nếu dài quá thì không làm tăng height */
+      min-width:0;
+    }
     .pill{
       border:1px solid var(--border);
       border-radius:999px;
@@ -169,31 +172,38 @@
     .grid{ display:grid; }
 
     .grid-target{
-  grid-template-columns:repeat(3, 90px);
-  grid-template-rows:repeat(3, 90px);
-  gap: 14px;
-}
+      grid-template-columns:repeat(3, 90px);
+      grid-template-rows:repeat(3, 90px);
+      gap: 14px;
+    }
 
     .grid-card{
-  grid-template-columns:repeat(3, 1fr);
-  grid-template-rows:repeat(3, 1fr);
-  gap: 8px;
-}
+      grid-template-columns:repeat(3, 1fr);
+      grid-template-rows:repeat(3, 1fr);
+      gap: 8px;
+    }
 
     .cell{
       background: var(--cell-empty);
       border:1px solid var(--cell-border);
       box-shadow: var(--cell-shadow);
     }
+
+    /* ✅ FIX: target cell có border-radius (trước bạn quên) + border/shadow rõ hơn */
     .grid-target .cell{
-  width:90px;
-  height:90px;
-}
+      width:90px;
+      height:90px;
+      border-radius:18px; /* <-- FIX bo tròn */
+      background: var(--target-bg);
+      border:1px solid var(--target-border);
+      box-shadow: var(--target-shadow);
+    }
+
     .grid-card .cell{
-  width: calc(var(--tile) / 4.2);
-  height: calc(var(--tile) / 4.2);
-  border-radius: 12px;
-}
+      width: calc(var(--tile) / 4.2);
+      height: calc(var(--tile) / 4.2);
+      border-radius: 12px;
+    }
 
     /* Cards grid area - NO SCROLL (fit by JS) */
     #cardsWrap{
@@ -206,7 +216,7 @@
       justify-content:center;
       align-content:start;
 
-      overflow:hidden; /* quan trọng: không scroll */
+      overflow:hidden; /* không scroll */
       padding: 6px;
 
       border: 1px solid var(--border);
@@ -272,7 +282,7 @@
       flex-wrap:wrap;
     }
 
-    /* Responsive fallback: nếu màn nhỏ -> stack 3 panel */
+    /* Responsive fallback */
     @media (max-width: 1100px){
       body{ overflow:auto; }
       .app{
@@ -280,7 +290,9 @@
         grid-template-columns: 1fr;
       }
       .panel{ overflow:visible; }
-      #cardsWrap{ overflow:auto; max-height: 70vh; } /* fallback thôi */
+      #cardsWrap{ overflow:auto; max-height: 70vh; }
+      .controls{ flex-wrap:wrap; white-space:normal; }
+      .hud{ flex-wrap:wrap; white-space:normal; overflow:visible; }
     }
   </style>
 </head>
@@ -340,7 +352,6 @@
       </div>
 
       <div class="top5-body">
-        <h3 style="display:none">Top 5 (fastest)</h3>
         <ol id="leaderboard"></ol>
       </div>
     </div>
@@ -349,96 +360,87 @@
   <script src="app.js"></script>
 
   <script>
-  // Fit 3x3 cards to the available space (no scroll)
-  function fitCardsGrid(){
-    // Only do this in desktop layout (when 3 columns active)
-    if (window.matchMedia("(max-width: 1100px)").matches) return;
+    // Fit 3x3 cards to the available space (no scroll)
+    function fitCardsGrid(){
+      if (window.matchMedia("(max-width: 1100px)").matches) return;
 
-    const cardsWrap = document.getElementById("cardsWrap");
-    const header = document.getElementById("cardsHeader");
-    const bottom = document.getElementById("cardsBottom");
-    const cardsPanel = document.getElementById("cardsPanel");
-    if(!cardsWrap || !header || !bottom || !cardsPanel) return;
+      const cardsWrap = document.getElementById("cardsWrap");
+      const header = document.getElementById("cardsHeader");
+      const bottom = document.getElementById("cardsBottom");
+      const cardsPanel = document.getElementById("cardsPanel");
+      if(!cardsWrap || !header || !bottom || !cardsPanel) return;
 
-    // Use requestAnimationFrame to measure AFTER layout settles
-    requestAnimationFrame(() => {
-      const panelRect = cardsPanel.getBoundingClientRect();
-      const headerRect = header.getBoundingClientRect();
-      const bottomRect = bottom.getBoundingClientRect();
+      requestAnimationFrame(() => {
+        const panelRect = cardsPanel.getBoundingClientRect();
+        const headerRect = header.getBoundingClientRect();
+        const bottomRect = bottom.getBoundingClientRect();
 
-      const panelStyle = getComputedStyle(cardsPanel);
-      const padTop = parseFloat(panelStyle.paddingTop) || 0;
-      const padBottom = parseFloat(panelStyle.paddingBottom) || 0;
-      const padLeft = parseFloat(panelStyle.paddingLeft) || 0;
-      const padRight = parseFloat(panelStyle.paddingRight) || 0;
+        const panelStyle = getComputedStyle(cardsPanel);
+        const padTop = parseFloat(panelStyle.paddingTop) || 0;
+        const padBottom = parseFloat(panelStyle.paddingBottom) || 0;
+        const padLeft = parseFloat(panelStyle.paddingLeft) || 0;
+        const padRight = parseFloat(panelStyle.paddingRight) || 0;
 
-      // Get real flex gap (cards-panel has gap:12px)
-      const panelGap = parseFloat(panelStyle.gap) || 0;
+        const panelGap = parseFloat(panelStyle.gap) || 0;
 
-      // available height inside panel for cardsWrap:
-      // panel height minus header minus bottom minus paddings minus 2 gaps (header->wrap, wrap->bottom)
-      const availableH =
-        panelRect.height
-        - headerRect.height
-        - bottomRect.height
-        - padTop
-        - padBottom
-        - (panelGap * 2);
+        const availableH =
+          panelRect.height
+          - headerRect.height
+          - bottomRect.height
+          - padTop
+          - padBottom
+          - (panelGap * 2);
 
-      // available width inside panel for cardsWrap
-      const availableW =
-        panelRect.width
-        - padLeft
-        - padRight;
+        const availableW =
+          panelRect.width
+          - padLeft
+          - padRight;
 
-      // internal padding of cardsWrap + border
-      const wrapStyle = getComputedStyle(cardsWrap);
-      const wrapPadX = (parseFloat(wrapStyle.paddingLeft) || 0) + (parseFloat(wrapStyle.paddingRight) || 0);
-      const wrapPadY = (parseFloat(wrapStyle.paddingTop) || 0) + (parseFloat(wrapStyle.paddingBottom) || 0);
-      const borderX = (parseFloat(wrapStyle.borderLeftWidth) || 0) + (parseFloat(wrapStyle.borderRightWidth) || 0);
-      const borderY = (parseFloat(wrapStyle.borderTopWidth) || 0) + (parseFloat(wrapStyle.borderBottomWidth) || 0);
+        const wrapStyle = getComputedStyle(cardsWrap);
+        const wrapPadX = (parseFloat(wrapStyle.paddingLeft) || 0) + (parseFloat(wrapStyle.paddingRight) || 0);
+        const wrapPadY = (parseFloat(wrapStyle.paddingTop) || 0) + (parseFloat(wrapStyle.paddingBottom) || 0);
+        const borderX = (parseFloat(wrapStyle.borderLeftWidth) || 0) + (parseFloat(wrapStyle.borderRightWidth) || 0);
+        const borderY = (parseFloat(wrapStyle.borderTopWidth) || 0) + (parseFloat(wrapStyle.borderBottomWidth) || 0);
 
-      const innerW = Math.max(0, availableW - wrapPadX - borderX);
-      const innerH = Math.max(0, availableH - wrapPadY - borderY);
+        const innerW = Math.max(0, availableW - wrapPadX - borderX);
+        const innerH = Math.max(0, availableH - wrapPadY - borderY);
 
-      // Choose gap based on smaller dimension
-      let gap = Math.floor(Math.min(18, Math.max(10, Math.min(innerW, innerH) * 0.03)));
+        let gap = Math.floor(Math.min(18, Math.max(10, Math.min(innerW, innerH) * 0.03)));
 
-      // Solve tile from both constraints: 3 tiles + 2 gaps fits both width & height
-      const tileFromW = (innerW - 2*gap) / 3;
-      const tileFromH = (innerH - 2*gap) / 3;
-      let tile = Math.floor(Math.min(tileFromW, tileFromH));
+        const tileFromW = (innerW - 2*gap) / 3;
+        const tileFromH = (innerH - 2*gap) / 3;
+        let tile = Math.floor(Math.min(tileFromW, tileFromH));
 
-      // clamp for usability
-      tile = Math.max(130, Math.min(tile, 210));
-      gap  = Math.max(10, Math.min(gap, 18));
+        tile = Math.max(130, Math.min(tile, 210));
+        gap  = Math.max(10, Math.min(gap, 18));
 
-      document.documentElement.style.setProperty("--tile", tile + "px");
-      document.documentElement.style.setProperty("--tile-gap", gap + "px");
-    });
-  }
-
-  function debounceFit(){
-    window.clearTimeout(window.__fitT);
-    window.__fitT = window.setTimeout(fitCardsGrid, 30);
-  }
-
-  window.addEventListener("load", fitCardsGrid);
-  window.addEventListener("resize", debounceFit);
-
-  // IMPORTANT: re-fit whenever UI changes (Start/Reset/New)
-  window.addEventListener("click", (e) => {
-    const id = e.target && e.target.id;
-    if (id === "startBtn" || id === "resetBtn" || id === "newBtn" || id === "bankSelect" || id === "submitBtn") {
-      debounceFit();
-      // one more pass after next frame (some UI updates happen async)
-      requestAnimationFrame(() => debounceFit());
+        document.documentElement.style.setProperty("--tile", tile + "px");
+        document.documentElement.style.setProperty("--tile-gap", gap + "px");
+      });
     }
-  });
 
-  // In case app.js updates HUD text without click (timer ticks)
-  // Refit once shortly after start to lock the layout.
-  const _origSetText = (el, txt) => { if (el) el.textContent = txt; };
-</script>
+    function debounceFit(){
+      window.clearTimeout(window.__fitT);
+      window.__fitT = window.setTimeout(fitCardsGrid, 30);
+    }
+
+    window.addEventListener("load", fitCardsGrid);
+    window.addEventListener("resize", debounceFit);
+
+    // re-fit whenever UI changes (Start/Reset/New/Bank/Submit)
+    window.addEventListener("click", (e) => {
+      const id = e.target && e.target.id;
+      if (id === "startBtn" || id === "resetBtn" || id === "newBtn" || id === "submitBtn") {
+        debounceFit();
+        requestAnimationFrame(() => debounceFit());
+      }
+    });
+
+    // Bank select is "change" not "click" sometimes
+    document.getElementById("bankSelect")?.addEventListener("change", () => {
+      debounceFit();
+      requestAnimationFrame(() => debounceFit());
+    });
+  </script>
 </body>
 </html>
